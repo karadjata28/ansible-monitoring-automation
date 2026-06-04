@@ -1,0 +1,15 @@
+
+- name: daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: run os_updates.service
+  ansible.builtin.systemd:
+    name: os_updates.service
+    state: started
+
+- name: restart os_updates.timer
+  ansible.builtin.systemd:
+    name: os_updates.timer
+    state: restarted
+    enabled: true

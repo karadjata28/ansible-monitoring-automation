@@ -1,0 +1,54 @@
+os_updates_script_path: /usr/local/bin/export_os_updates.sh
+os_updates_textfile_dir: "{{ node_exporter_textfile_dir | default('/var/lib/node_exporter/textfile') }}"
+os_updates_metric_file: "{{ os_updates_textfile_dir }}/os_updates.prom"
+os_updates_interval: "30m"
+os_updates_user: "{{ node_exporter_user | default('node_exporter') }}"
+os_updates_group: "{{ node_exporter_group | default('node_exporter') }}"
+
+os_updates_builtin_collectors:
+  - name: cpu_info
+    enabled: true
+    kind: kv_info
+    metric_name: os_host_cpu_info
+    help: Static CPU information collected from lscpu
+    command: |
+      lscpu
+
+  - name: memory_bytes
+    enabled: true
+    kind: kv_gauge
+    metric_name: os_host_memory_bytes
+    help: Memory statistics in bytes collected from free -b
+    command: |
+      free -b | awk 'NR==2 {
+        print "total:" $2
+        print "used:" $3
+        print "free:" $4
+        print "shared:" $5
+        print "buff_cache:" $6
+        print "available:" $7
+      }'
+
+  - name: filesystem_usage
+    enabled: true
+    kind: df_gauge
+    metric_name: os_host_filesystem
+    command: |
+      df -B1 -P
+
+os_updates_extra_collectors: []
+# Example:
+# os_updates_extra_collectors:
+#   - name: load_average
+#     enabled: true
+#     kind: kv_gauge
+#     metric_name: os_host_load_average
+#     help: System load average
+#     command: |
+#       uptime | awk -F'load average: ' '{print $2}' | awk -F', ' '{
+#         print "1m:" $1
+#         print "5m:" $2
+#         print "15m:" $3
+#       }'
+
+os_updates_collectors: "{{ os_updates_builtin_collectors + os_updates_extra_collectors }}"

@@ -1,0 +1,30 @@
+---
+- name: Apply common host baseline
+  hosts: common
+  become: true
+  roles:
+    - common
+
+- name: Deploy node_exporter
+  hosts: node_exporter
+  become: true
+  roles:
+    - node_exporter
+
+- name: Deploy OS update 
+  hosts: os_updates
+  become: true
+  roles:
+    - os_updates
+
+- name: Deploy cAdvisor 
+  hosts: cadvisor
+  become: true
+  roles:
+    - cadvisor
+
+- name: Deploy VictoriaLogs
+  hosts: victorialogs
+  become: true
+  roles:
+    - victorialogs

@@ -1,0 +1,19 @@
+---
+victorialogs_version: "v1.50.0"
+victorialogs_user: "victorialogs"
+victorialogs_group: "victorialogs"
+
+victorialogs_bin_dir: "/usr/local/bin"
+victorialogs_data_dir: "/var/lib/victorialogs"
+victorialogs_log_dir: "/var/log/victorialogs"
+
+victorialogs_listen_address: "0.0.0.0"
+victorialogs_http_port: 9428
+victorialogs_retention_period: "31d"
+victorialogs_extra_args: []
+
+victorialogs_binary_name: "victoria-logs-prod"
+victorialogs_binary_is_archive: true
+victorialogs_binary_url: "https://github.com/VictoriaMetrics/VictoriaLogs/releases/download/{{ victorialogs_version }}/victoria-logs-linux-amd64-{{ victorialogs_version }}.tar.gz"
+victorialogs_checksum: "sha256:ab8a4503d88efe62ee72c51da2cf0215890e84ac4f6e1c6ab07d1318972f5ddc"
+victorialogs_unpack_dir: "/tmp/victorialogs-{{ victorialogs_version }}"

@@ -1,0 +1,27 @@
+common_packages:
+  - curl
+  - wget
+  - git
+  - unzip
+  - mc
+  - nano
+  - htop
+  - ncdu
+  - net-tools
+  - gnupg
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - python3-docker
+  - docker.io
+
+common_timezone: "UTC"
+
+common_extra_groups:
+  - sudo
+  - docker
+  - adm
+  - systemd-journal
+
+admin_user: "{{ ansible_user | default('admin') }}"
+admin_groups: "{{ common_extra_groups }}"

@@ -1,0 +1,81 @@
+---
+all:
+  children:
+    common:
+      hosts:
+        monitoring-node-01:
+          ansible_host: 10.10.10.11
+        monitoring-node-02:
+          ansible_host: 10.10.10.12
+        monitoring-node-03:
+          ansible_host: 10.10.10.13
+        monitoring-node-04:
+          ansible_host: 10.10.10.14
+        monitoring-node-05:
+          ansible_host: 10.10.10.15
+        monitoring-node-06:
+          ansible_host: 10.10.10.16
+        monitoring-node-07:
+          ansible_host: 10.10.10.17
+        monitoring-node-08:
+          ansible_host: 10.10.10.18
+        monitoring-node-09:
+          ansible_host: 10.10.10.19
+        monitoring-node-10:
+          ansible_host: 10.10.10.20
+
+
+    node_exporter:
+      hosts:
+        monitoring-node-01: {}
+        monitoring-node-02: {}
+        monitoring-node-03: {}
+        monitoring-node-04: {}
+        monitoring-node-05: {}
+        monitoring-node-06: {}
+        monitoring-node-07: {}
+        monitoring-node-08: {}
+        monitoring-node-09: {}
+
+
+    os_updates:
+      hosts:
+        monitoring-node-01: {}
+        monitoring-node-02: {}
+        monitoring-node-03: {}
+        monitoring-node-04: {}
+        monitoring-node-05: {}
+        monitoring-node-06: {}
+        monitoring-node-07: {}
+        monitoring-node-08: {}
+        monitoring-node-09: {}
+        monitoring-node-10: {}
+
+
+    cadvisor:
+      hosts:
+        monitoring-node-01: {}
+        monitoring-node-02: {}
+        monitoring-node-03: {}
+        monitoring-node-04: {}
+        monitoring-node-05: {}
+        monitoring-node-06: {}
+        monitoring-node-07: {}
+        monitoring-node-08: {}
+        monitoring-node-09: {}
+        monitoring-node-10: {}
+
+
+    victorialogs:
+      hosts:
+        monitoring-node-01: {}
+        monitoring-node-02: {}
+        monitoring-node-03: {}
+        monitoring-node-04: {}
+        monitoring-node-05: {}
+        monitoring-node-06: {}
+        monitoring-node-07: {}
+        monitoring-node-08: {}
+        monitoring-node-09: {}
+        monitoring-node-10: {}
+

@@ -1,0 +1,70 @@
+---
+- name: Ensure node_exporter group exists
+  ansible.builtin.group:
+    name: "{{ node_exporter_group }}"
+    state: present
+
+- name: Ensure node_exporter user exists
+  ansible.builtin.user:
+    name: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    shell: /usr/sbin/nologin
+    system: yes
+    create_home: no
+   
+- name: Remove any old node_exporter drop-ins (cleanup)
+  ansible.builtin.file:
+    path: /etc/systemd/system/node_exporter.service.d
+    state: absent
+
+
+- name: Create install directory
+  ansible.builtin.file:
+    path: "{{ node_exporter_install_dir }}"
+    state: directory
+    owner: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    mode: '0755'
+
+- name: Create node_exporter textfile directory
+  ansible.builtin.file:
+    path: "{{ node_exporter_textfile_dir }}"
+    state: directory
+    owner: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    mode: "0755"
+  when: node_exporter_textfile_enabled | bool
+
+- name: Download node_exporter
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/tmp/node_exporter.tar.gz"
+    mode: '0644'
+
+- name: Extract node_exporter
+  ansible.builtin.unarchive:
+    src: "/tmp/node_exporter.tar.gz"
+    dest: "{{ node_exporter_install_dir }}"
+    remote_src: true
+    extra_opts: [--strip-components=1]
+    creates: "{{ node_exporter_install_dir }}/node_exporter"
+
+- name: Symlink node_exporter into /usr/local/bin
+  ansible.builtin.file:
+    src: "{{ node_exporter_install_dir }}/node_exporter"
+    dest: /usr/local/bin/node_exporter
+    state: link
+
+- name: Install systemd unit file
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+  notify: restart node_exporter
+
+- name: Enable and start node_exporter
+  ansible.builtin.systemd:
+    name: node_exporter
+    enabled: true
+    state: started
+    daemon_reload: true

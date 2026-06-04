@@ -1,0 +1,11 @@
+---
+- name: restart victorialogs
+  ansible.builtin.systemd:
+    name: victorialogs
+    state: restarted
+    
+
+- name: daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+    

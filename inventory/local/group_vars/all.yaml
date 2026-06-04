@@ -1,0 +1,12 @@
+---
+ansible_user: "admin"
+
+admin_user: "admin"
+admin_groups:
+  - sudo
+  - docker
+  - adm
+  - systemd-journal
+
+node_exporter_textfile_dir: "/var/lib/node_exporter/textfile"
+os_updates_metric_file: "{{ node_exporter_textfile_dir }}/os_updates.prom"

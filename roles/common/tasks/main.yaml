@@ -1,0 +1,38 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+#- name: Upgrade all packages
+#  ansible.builtin.apt:
+#    upgrade: dist
+#    autoremove: yes
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Ensure timezone is set
+  ansible.builtin.command: timedatectl set-timezone {{ common_timezone }}
+  changed_when: false
+
+- name: Ensure Docker service is enabled and started
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ensure admin groups exist
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ admin_groups | default(common_extra_groups) }}"
+
+- name: Ensure admin user exists
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    groups: "{{ admin_groups | default(common_extra_groups) }}"
+    append: yes
+    shell: /bin/bash

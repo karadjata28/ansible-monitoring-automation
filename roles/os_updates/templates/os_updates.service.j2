@@ -1,0 +1,12 @@
+[Unit]
+Description=Export OS update count to node_exporter textfile
+After=network.target
+
+[Service]
+Type=oneshot
+User={{ os_updates_user }}
+Group={{ os_updates_group }}
+ExecStart={{ os_updates_script_path }}
+
+[Install]
+WantedBy=multi-user.target

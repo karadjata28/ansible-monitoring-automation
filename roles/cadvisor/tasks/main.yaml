@@ -1,0 +1,10 @@
+
+- name: Run cAdvisor container
+  community.docker.docker_container:
+    name: "{{ cadvisor_container_name }}"
+    image: "{{ cadvisor_image }}"
+    state: started
+    restart_policy: "{{ cadvisor_restart_policy }}"
+    published_ports:
+      - "{{ cadvisor_host_port }}:{{ cadvisor_container_port }}"
+    volumes: "{{ cadvisor_volumes }}"

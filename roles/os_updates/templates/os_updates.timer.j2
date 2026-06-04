@@ -1,0 +1,10 @@
+[Unit]
+Description=Run os_updates exporter every {{ os_updates_interval }}
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec={{ os_updates_interval }}
+Unit=os_updates.service
+
+[Install]
+WantedBy=timers.target

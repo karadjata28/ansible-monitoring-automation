@@ -1,0 +1,296 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+METRIC_FILE="{{ os_updates_metric_file }}"
+TMP_METRIC_FILE="$(mktemp "${METRIC_FILE}.tmp.XXXXXX")"
+TMP_PACKAGE_METRICS="$(mktemp "${METRIC_FILE}.packages.XXXXXX")"
+TMP_EXTRA_METRICS="$(mktemp "${METRIC_FILE}.extra.XXXXXX")"
+
+export DEBIAN_FRONTEND=noninteractive
+export LC_ALL=C
+
+cleanup() {
+  rm -f "$TMP_METRIC_FILE" "$TMP_PACKAGE_METRICS" "$TMP_EXTRA_METRICS"
+}
+
+escape_prometheus_label() {
+  local value=$1
+
+  value=${value//\\/\\\\}
+  value=${value//\"/\\\"}
+  value=${value//$'\n'/\\n}
+
+  printf '%s' "$value"
+}
+
+trap cleanup EXIT
+
+trim() {
+  printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
+sanitize_prometheus_name() {
+  local value=$1
+
+  value=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')
+  value=$(printf '%s' "$value" | sed -E 's/[^a-z0-9_]+/_/g; s/_+/_/g; s/^_+//; s/_+$//')
+
+  if [[ -z "$value" ]]; then
+    value="value"
+  elif [[ "$value" =~ ^[0-9] ]]; then
+    value="_${value}"
+  fi
+
+  printf '%s' "$value"
+}
+
+emit_metric_header() {
+  local metric_name=$1
+  local help_text=$2
+  local metric_type=$3
+
+  printf '# HELP %s %s\n' "$metric_name" "$help_text" >> "$TMP_EXTRA_METRICS"
+  printf '# TYPE %s %s\n' "$metric_name" "$metric_type" >> "$TMP_EXTRA_METRICS"
+}
+
+run_shell_command() {
+  local command=$1
+  local output
+
+  if ! output=$(bash -o pipefail -c "$command" 2>/dev/null); then
+    return 1
+  fi
+
+  printf '%s' "$output"
+}
+
+is_prometheus_number() {
+  [[ "$1" =~ ^-?([0-9]+([.][0-9]+)?|[.][0-9]+)$ ]]
+}
+
+collect_kv_info() {
+  local metric_name=$1
+  local help_text=$2
+  local command=$3
+  local separator=${4:-:}
+  local output line raw_key raw_value label_name labels=""
+
+  output=$(run_shell_command "$command") || return 1
+  emit_metric_header "$metric_name" "$help_text" gauge
+
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" != *"$separator"* ]] && continue
+
+    raw_key=$(trim "${line%%"$separator"*}")
+    raw_value=$(trim "${line#*"$separator"}")
+
+    [[ -z "$raw_key" || -z "$raw_value" ]] && continue
+
+    label_name=$(sanitize_prometheus_name "$raw_key")
+
+    if [[ -n "$labels" ]]; then
+      labels+=","
+    fi
+
+    labels+=$(printf '%s="%s"' "$label_name" "$(escape_prometheus_label "$raw_value")")
+  done <<< "$output"
+
+  [[ -n "$labels" ]] || return 1
+  printf '%s%s%s 1\n' "$metric_name" '{' "${labels}}" >> "$TMP_EXTRA_METRICS"
+}
+
+collect_kv_gauge() {
+  local metric_name=$1
+  local help_text=$2
+  local command=$3
+  local separator=${4:-:}
+  local output line raw_key raw_value field_name
+  local emitted=0
+
+  output=$(run_shell_command "$command") || return 1
+  emit_metric_header "$metric_name" "$help_text" gauge
+
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" != *"$separator"* ]] && continue
+
+    raw_key=$(trim "${line%%"$separator"*}")
+    raw_value=$(trim "${line#*"$separator"}")
+
+    [[ -z "$raw_key" || -z "$raw_value" ]] && continue
+    is_prometheus_number "$raw_value" || continue
+
+    field_name=$(sanitize_prometheus_name "$raw_key")
+    printf '%s{field="%s"} %s\n' \
+      "$metric_name" \
+      "$(escape_prometheus_label "$field_name")" \
+      "$raw_value" \
+      >> "$TMP_EXTRA_METRICS"
+    emitted=1
+  done <<< "$output"
+
+  [[ "$emitted" -eq 1 ]]
+}
+
+collect_df_gauge() {
+  local metric_prefix=$1
+  local command=$2
+  local output line filesystem size used available used_percent mountpoint
+  local emitted=0
+
+  output=$(run_shell_command "$command") || return 1
+
+  printf '# HELP %s_bytes Filesystem size, used, and available space in bytes\n' "$metric_prefix" >> "$TMP_EXTRA_METRICS"
+  printf '# TYPE %s_bytes gauge\n' "$metric_prefix" >> "$TMP_EXTRA_METRICS"
+  printf '# HELP %s_used_percent Filesystem usage percentage\n' "$metric_prefix" >> "$TMP_EXTRA_METRICS"
+  printf '# TYPE %s_used_percent gauge\n' "$metric_prefix" >> "$TMP_EXTRA_METRICS"
+
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == Filesystem* ]] && continue
+
+    read -r filesystem size used available used_percent mountpoint <<< "$line"
+
+    [[ -n "$filesystem" && -n "$mountpoint" ]] || continue
+
+    used_percent=${used_percent%\%}
+
+    is_prometheus_number "$size" || continue
+    is_prometheus_number "$used" || continue
+    is_prometheus_number "$available" || continue
+    is_prometheus_number "$used_percent" || continue
+
+    printf '%s_bytes{filesystem="%s",mountpoint="%s",state="size"} %s\n' \
+      "$metric_prefix" \
+      "$(escape_prometheus_label "$filesystem")" \
+      "$(escape_prometheus_label "$mountpoint")" \
+      "$size" \
+      >> "$TMP_EXTRA_METRICS"
+    printf '%s_bytes{filesystem="%s",mountpoint="%s",state="used"} %s\n' \
+      "$metric_prefix" \
+      "$(escape_prometheus_label "$filesystem")" \
+      "$(escape_prometheus_label "$mountpoint")" \
+      "$used" \
+      >> "$TMP_EXTRA_METRICS"
+    printf '%s_bytes{filesystem="%s",mountpoint="%s",state="available"} %s\n' \
+      "$metric_prefix" \
+      "$(escape_prometheus_label "$filesystem")" \
+      "$(escape_prometheus_label "$mountpoint")" \
+      "$available" \
+      >> "$TMP_EXTRA_METRICS"
+    printf '%s_used_percent{filesystem="%s",mountpoint="%s"} %s\n' \
+      "$metric_prefix" \
+      "$(escape_prometheus_label "$filesystem")" \
+      "$(escape_prometheus_label "$mountpoint")" \
+      "$used_percent" \
+      >> "$TMP_EXTRA_METRICS"
+
+    emitted=1
+  done <<< "$output"
+
+  [[ "$emitted" -eq 1 ]]
+}
+
+collect_raw_prometheus() {
+  local command=$1
+  local output
+
+  output=$(run_shell_command "$command") || return 1
+  [[ -n "$output" ]] || return 1
+  printf '%s\n' "$output" >> "$TMP_EXTRA_METRICS"
+}
+
+emit_collector_status() {
+  local collector_name=$1
+  local status=$2
+
+  printf 'os_updates_collector_success{name="%s"} %s\n' \
+    "$(escape_prometheus_label "$collector_name")" \
+    "$status" \
+    >> "$TMP_EXTRA_METRICS"
+}
+
+updates=0
+security=0
+
+# Do not refresh package indexes here. The service runs as a non-root user,
+# and the exporter should report from the current APT cache without requiring
+# elevated privileges.
+while IFS= read -r line; do
+  [[ -z "$line" || "$line" == "Listing..."* ]] && continue
+
+  updates=$((updates + 1))
+  [[ "$line" == *security* ]] && security=$((security + 1))
+
+  package_field=${line%% *}
+  version_field=${line#"$package_field"}
+  version_field=${version_field#" "}
+  version_field=${version_field%% *}
+  package_name=${package_field%%/*}
+
+  printf 'os_update_available{package="%s",version="%s"} 1\n' \
+    "$(escape_prometheus_label "$package_name")" \
+    "$(escape_prometheus_label "$version_field")" \
+    >> "$TMP_PACKAGE_METRICS"
+done < <(apt list --upgradable 2>/dev/null || true)
+
+{
+  printf '# HELP os_updates_pending Number of OS package updates pending\n'
+  printf '# TYPE os_updates_pending gauge\n'
+  printf 'os_updates_pending{type="all"} %s\n' "$updates"
+  printf 'os_updates_pending{type="security"} %s\n' "$security"
+  printf '# HELP os_update_available Whether a specific package update is available\n'
+  printf '# TYPE os_update_available gauge\n'
+  cat "$TMP_PACKAGE_METRICS"
+
+  printf '# HELP os_updates_collector_success Whether an extra collector completed successfully\n'
+  printf '# TYPE os_updates_collector_success gauge\n'
+
+{% for collector in os_updates_collectors if collector.enabled | default(true) %}
+  collector_name={{ collector.name | to_json }}
+  collector_kind={{ collector.kind | to_json }}
+  collector_metric_name={{ collector.metric_name | default('') | to_json }}
+  collector_help={{ collector.help | default('') | to_json }}
+  collector_separator={{ collector.separator | default(':') | to_json }}
+  read -r -d '' collector_command <<'EOF_COLLECTOR_{{ loop.index }}' || true
+{{ collector.command }}
+EOF_COLLECTOR_{{ loop.index }}
+
+  case "$collector_kind" in
+    kv_info)
+      if collect_kv_info "$collector_metric_name" "$collector_help" "$collector_command" "$collector_separator"; then
+        emit_collector_status "$collector_name" 1
+      else
+        emit_collector_status "$collector_name" 0
+      fi
+      ;;
+    kv_gauge)
+      if collect_kv_gauge "$collector_metric_name" "$collector_help" "$collector_command" "$collector_separator"; then
+        emit_collector_status "$collector_name" 1
+      else
+        emit_collector_status "$collector_name" 0
+      fi
+      ;;
+    df_gauge)
+      if collect_df_gauge "$collector_metric_name" "$collector_command"; then
+        emit_collector_status "$collector_name" 1
+      else
+        emit_collector_status "$collector_name" 0
+      fi
+      ;;
+    raw_prometheus)
+      if collect_raw_prometheus "$collector_command"; then
+        emit_collector_status "$collector_name" 1
+      else
+        emit_collector_status "$collector_name" 0
+      fi
+      ;;
+    *)
+      emit_collector_status "$collector_name" 0
+      ;;
+  esac
+{% endfor %}
+
+  cat "$TMP_EXTRA_METRICS"
+} > "$TMP_METRIC_FILE"
+
+chmod 0644 "$TMP_METRIC_FILE"
+mv "$TMP_METRIC_FILE" "$METRIC_FILE"
