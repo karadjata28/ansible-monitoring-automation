@@ -1,0 +1,24 @@
+---
+prometheus_version: "3.12.0"
+prometheus_user: "prometheus"
+prometheus_group: "prometheus"
+
+prometheus_install_root: "/opt/prometheus"
+prometheus_install_dir: "{{ prometheus_install_root }}/{{ prometheus_version }}"
+prometheus_config_dir: "/etc/prometheus"
+prometheus_config_file: "{{ prometheus_config_dir }}/prometheus.yml"
+prometheus_data_dir: "/var/lib/prometheus"
+
+prometheus_web_listen_address: "0.0.0.0:9090"
+prometheus_retention_time: "31d"
+prometheus_scrape_interval: "15s"
+prometheus_evaluation_interval: "15s"
+
+prometheus_node_exporter_port: 9100
+prometheus_cadvisor_port: "{{ cadvisor_host_port | default(9080) }}"
+prometheus_victorialogs_port: "{{ victorialogs_http_port | default(9428) }}"
+prometheus_vector_port: 9598
+
+prometheus_archive_name: "prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+prometheus_archive_url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/{{ prometheus_archive_name }}"
+prometheus_archive_checksum: "sha256:20da47f8e5303f74aecb78edd7f7e39041dac08ac4939dba75efd7a900ae8867"

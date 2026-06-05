@@ -28,3 +28,15 @@
   become: true
   roles:
     - victorialogs
+
+- name: Deploy Vector log collector
+  hosts: vector
+  become: true
+  roles:
+    - vector
+
+- name: Deploy Prometheus metrics server
+  hosts: prometheus
+  become: true
+  roles:
+    - prometheus

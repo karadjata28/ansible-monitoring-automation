@@ -1,0 +1,76 @@
+data_dir: "{{ vector_data_dir }}"
+
+api:
+  enabled: {{ vector_api_enabled | bool | lower }}
+  address: "{{ vector_api_address }}"
+
+sources:
+{% if vector_enable_journald | bool %}
+  journald:
+    type: journald
+{% endif %}
+{% if vector_enable_docker_logs | bool %}
+  docker:
+    type: docker_logs
+{% endif %}
+{% if vector_prometheus_exporter_enabled | bool %}
+  internal_metrics:
+    type: internal_metrics
+{% endif %}
+
+transforms:
+  normalize_logs:
+    type: remap
+    inputs:
+{% if vector_enable_journald | bool %}
+      - journald
+{% endif %}
+{% if vector_enable_docker_logs | bool %}
+      - docker
+{% endif %}
+    source: |
+      .host = "{{ inventory_hostname }}"
+
+      if exists(.message) {
+        .message = to_string(.message) ?? encode_json(.message)
+      } else {
+        .message = encode_json(.)
+      }
+
+      if !exists(.timestamp) {
+        .timestamp = now()
+      }
+
+      if exists(.container_name) || exists(.container_id) {
+        .source_type = "docker"
+        if exists(.container_name) {
+          .container_name = to_string(.container_name) ?? "unknown"
+        }
+      } else {
+        .source_type = "journald"
+        if exists(._SYSTEMD_UNIT) {
+          .systemd_unit = to_string(._SYSTEMD_UNIT) ?? "unknown"
+        }
+      }
+
+sinks:
+  victorialogs:
+    type: http
+    inputs:
+      - normalize_logs
+    uri: "{{ vector_victorialogs_url }}"
+    compression: gzip
+    encoding:
+      codec: json
+    framing:
+      method: newline_delimited
+    healthcheck:
+      enabled: false
+{% if vector_prometheus_exporter_enabled | bool %}
+
+  prometheus_exporter:
+    type: prometheus_exporter
+    inputs:
+      - internal_metrics
+    address: "{{ vector_prometheus_exporter_address }}"
+{% endif %}

@@ -10,7 +10,6 @@ Flow:
 - `os_updates.service` starts `/usr/local/bin/export_os_updates.sh`
 - the script collects APT update info and extra host metrics
 - `node_exporter` reads the `.prom` file through the textfile collector
-
 Current extra metrics:
 
 - CPU from `lscpu`

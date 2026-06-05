@@ -1,0 +1,24 @@
+[Unit]
+Description=Prometheus metrics server
+Documentation=https://prometheus.io/docs/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ prometheus_user }}
+Group={{ prometheus_group }}
+WorkingDirectory={{ prometheus_install_dir }}
+ExecStart=/usr/local/bin/prometheus \
+  --config.file={{ prometheus_config_file }} \
+  --storage.tsdb.path={{ prometheus_data_dir }} \
+  --storage.tsdb.retention.time={{ prometheus_retention_time }} \
+  --web.listen-address={{ prometheus_web_listen_address }}
+Restart=on-failure
+RestartSec=2
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

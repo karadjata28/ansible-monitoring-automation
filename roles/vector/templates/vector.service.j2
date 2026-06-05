@@ -1,0 +1,23 @@
+[Unit]
+Description=Vector log collector
+Documentation=https://vector.dev
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User={{ vector_user }}
+Group={{ vector_group }}
+{% if vector_supplementary_groups | length > 0 -%}
+SupplementaryGroups={{ vector_supplementary_groups | join(' ') }}
+{% endif -%}
+ExecStart=/usr/local/bin/vector --config {{ vector_config_file }}
+Restart=on-failure
+RestartSec=2
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

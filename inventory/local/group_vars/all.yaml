@@ -10,3 +10,8 @@ admin_groups:
 
 node_exporter_textfile_dir: "/var/lib/node_exporter/textfile"
 os_updates_metric_file: "{{ node_exporter_textfile_dir }}/os_updates.prom"
+
+victorialogs_http_port: 9428
+vector_victorialogs_host: "{{ hostvars[groups['victorialogs'][0]].ansible_host }}"
+
+prometheus_web_listen_address: "0.0.0.0:9090"

@@ -1,0 +1,40 @@
+---
+vector_version: "0.56.0"
+vector_user: "vector"
+vector_group: "vector"
+vector_supplementary_groups:
+  - systemd-journal
+  - docker
+
+vector_install_root: "/opt/vector"
+vector_release_dir: "{{ vector_install_root }}/{{ vector_version }}"
+vector_config_file: "/etc/vector/vector.yaml"
+vector_data_dir: "/var/lib/vector"
+
+vector_api_enabled: true
+vector_api_address: "0.0.0.0:8686"
+vector_prometheus_exporter_enabled: true
+vector_prometheus_exporter_address: "0.0.0.0:9598"
+vector_enable_journald: true
+vector_enable_docker_logs: true
+
+vector_arch_map:
+  x86_64: "x86_64-unknown-linux-gnu"
+  amd64: "x86_64-unknown-linux-gnu"
+  aarch64: "aarch64-unknown-linux-gnu"
+  arm64: "aarch64-unknown-linux-gnu"
+
+vector_checksums:
+  x86_64-unknown-linux-gnu: "sha256:7139f412c9d1c5fdff4b59d566c6dbad8a2ef8bb5aa3db82c81e78e4cd919019"
+  aarch64-unknown-linux-gnu: "sha256:695cbab7a128e080b380cf29b3b40f3b0688b14280e891ed9129b3d34f4d5847"
+
+vector_victorialogs_scheme: "http"
+vector_victorialogs_host: "{{ hostvars[groups['victorialogs'][0]].ansible_host | default('127.0.0.1') }}"
+vector_victorialogs_port: "{{ victorialogs_http_port | default(9428) }}"
+vector_victorialogs_stream_fields:
+  - host
+  - source_type
+  - container_name
+  - systemd_unit
+vector_victorialogs_url: >-
+  {{ vector_victorialogs_scheme }}://{{ vector_victorialogs_host }}:{{ vector_victorialogs_port }}/insert/jsonline?_stream_fields={{ vector_victorialogs_stream_fields | join(',') }}&_msg_field=message&_time_field=timestamp

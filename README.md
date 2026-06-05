@@ -8,7 +8,13 @@ The project focuses on a small, practical observability setup:
 - host metrics through `node_exporter`
 - OS update and system status metrics through the node_exporter textfile collector
 - container metrics through cAdvisor
+- metrics scraping, storage, and querying through Prometheus
+- host and container log shipping through Vector
 - centralized log storage and querying with VictoriaLogs
+
+For metrics, this project uses Prometheus as the central metrics server.
+
+For logging, this project uses Vector as the collector and VictoriaLogs as the storage/query backend. It does not require Loki or Promtail.
 
 
 ## Project Goals
@@ -27,8 +33,10 @@ This project demonstrates how to structure an Ansible automation repository that
 - Ansible
 - Linux systemd
 - Docker
+- Prometheus
 - node_exporter
 - cAdvisor
+- Vector
 - VictoriaLogs
 - Ansible Vault
 
@@ -51,6 +59,8 @@ This project demonstrates how to structure an Ansible automation repository that
 │   ├── node_exporter/
 │   ├── os_updates/
 │   ├── cadvisor/
+│   ├── prometheus/
+│   ├── vector/
 │   └── victorialogs/
 └── vault/
     └── secrets.yaml
@@ -83,6 +93,8 @@ The inventory contains these groups:
 - `os_updates`
 - `cadvisor`
 - `victorialogs`
+- `vector`
+- `prometheus`
 
 Each group maps hosts to the role that should run on them. A host can belong to multiple groups, which allows the same server to receive multiple monitoring components.
 
@@ -98,6 +110,9 @@ Current shared values include:
 - managed admin account: `admin`
 - node_exporter textfile collector path
 - OS updates metric output path
+- VictoriaLogs HTTP port
+- Vector target VictoriaLogs host
+- Prometheus web listen address
 
 ## Playbook Flow
 
@@ -114,8 +129,10 @@ It runs the roles in this order:
 3. `os_updates`
 4. `cadvisor`
 5. `victorialogs`
+6. `vector`
+7. `prometheus`
 
-This order matters because `common` prepares the base operating system, Docker, and user groups before the exporter and service roles are applied.
+This order matters because `common` prepares the base operating system, Docker, and user groups before the exporter and service roles are applied. VictoriaLogs is deployed before Vector so the log collector has a storage endpoint to send logs to. Prometheus is deployed after the exporters so its generated scrape configuration points at services that should already exist.
 
 ## Roles
 
@@ -181,6 +198,64 @@ Main responsibilities:
 - expose cAdvisor on host port `9080`
 - mount Docker and host filesystem paths needed for container metrics
 - keep the container running with the configured restart policy
+
+### prometheus
+
+Installs and manages Prometheus as a systemd service for metrics collection.
+
+Main responsibilities:
+
+- create the `prometheus` system user and group
+- install the Prometheus and `promtool` binaries from the official release archive
+- generate `prometheus.yml` from the Ansible inventory
+- scrape node_exporter targets
+- scrape cAdvisor targets
+- scrape VictoriaLogs metrics
+- scrape Vector internal metrics exposed through `prometheus_exporter`
+- store metrics locally in the Prometheus TSDB
+
+Default Prometheus web address:
+
+```text
+0.0.0.0:9090
+```
+
+Default data directory:
+
+```text
+/var/lib/prometheus
+```
+
+Default retention:
+
+```text
+31d
+```
+
+### vector
+
+Installs and manages Vector as a systemd service for log collection.
+
+Main responsibilities:
+
+- create the `vector` system user and group
+- install the Vector binary from the official release archive
+- collect journald logs
+- collect Docker container logs
+- normalize log fields before sending them to VictoriaLogs
+- send logs to the VictoriaLogs JSON line ingestion endpoint
+
+Default Vector API address:
+
+```text
+0.0.0.0:8686
+```
+
+Default VictoriaLogs ingestion path:
+
+```text
+/insert/jsonline
+```
 
 ### victorialogs
 
@@ -289,4 +364,4 @@ ansible-playbook --syntax-check playbooks/monitoring.yaml
 
 ## Summary
 
-This project demonstrates practical configuration automation with Ansible: role-based Linux configuration, exporter deployment, Docker-based container metrics, VictoriaLogs service management, encrypted secret handling, and a clean inventory structure suitable for multi-host monitoring environments.
+This project demonstrates practical configuration automation with Ansible: role-based Linux configuration, exporter deployment, Prometheus metrics scraping, Docker-based container metrics, Vector-based log shipping, VictoriaLogs service management, encrypted secret handling, and a clean inventory structure suitable for multi-host monitoring environments.

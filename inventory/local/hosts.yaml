@@ -79,3 +79,19 @@ all:
         monitoring-node-09: {}
         monitoring-node-10: {}
 
+    vector:
+      hosts:
+        monitoring-node-01: {}
+        monitoring-node-02: {}
+        monitoring-node-03: {}
+        monitoring-node-04: {}
+        monitoring-node-05: {}
+        monitoring-node-06: {}
+        monitoring-node-07: {}
+        monitoring-node-08: {}
+        monitoring-node-09: {}
+        monitoring-node-10: {}
+
+    prometheus:
+      hosts:
+        monitoring-node-01: {}
